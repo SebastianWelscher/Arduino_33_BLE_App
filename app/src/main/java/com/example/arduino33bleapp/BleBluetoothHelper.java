@@ -118,17 +118,11 @@ class BleBluetoothHelper extends AppCompatActivity {
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
                     }
-
                 } else {
-
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
-
                 }
-                return;
             }
-
         }
     }
-
 }
