@@ -6,15 +6,22 @@ import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Handler;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,6 +31,8 @@ import androidx.core.content.ContextCompat;
 class BleBluetoothHelper extends AppCompatActivity {
 
     Activity activity;
+
+    TextView peripheralTextView;
 
     BluetoothManager btManager;
     BluetoothAdapter btAdapter;
@@ -103,6 +112,86 @@ class BleBluetoothHelper extends AppCompatActivity {
         }
     }
 
+    private ScanCallback leScanCallback = new ScanCallback() {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            peripheralTextView.append("Index: " + deviceIndex + ", Device Name: " +
+            result.getDevice().getName() + " rssi; " + result.getRssi() + "\n");
+            devicesDiscovered.add(result.getDevice());
+            deviceIndex++;
+
+            final int scrollAmount = peripheralTextView.getLayout().getLineTop(peripheralTextView.getLineCount())
+                    - peripheralTextView.getHeight();
+
+            if(scrollAmount > 0){
+                peripheralTextView.scrollTo(0,scrollAmount);
+            }
+        }
+    };
+
+    private final BluetoothGattCallback  btleGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    peripheralTextView.append("device read or wrote to\n");
+                }
+            });
+        }
+
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            System.out.println(newState);
+            switch (newState){
+                case 0:
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            peripheralTextView.append("device disconnected\n");
+                        }
+                    });
+                    break;
+                case 2:
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            peripheralTextView.append("device connected");
+                        }
+                    });
+                    btGatt.discoverServices();
+                    break;
+                default:
+                    activity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            peripheralTextView.append("We encountered an unknown state");
+                        }
+                    });
+                    break;
+            }
+        }
+
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    peripheralTextView.append("device services have been discovered\n");
+                }
+            });
+              displayGattServices(btGatt.getServices());
+        }
+    };
+
+    private void broadcastUpdate(final String action, final BluetoothGattCharacteristic characteristic){
+        System.out.println(characteristic.getUuid());
+    }
+
+    private void displayGattServices(List<BluetoothGattService> gattServices){
+
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode,
                                            String permissions[], int[] grantResults) {
@@ -111,7 +200,7 @@ class BleBluetoothHelper extends AppCompatActivity {
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
+                        System.out.println("coarse location permission granted");
                     // permission was granted, yay! Do the
                     // location-related task you need to do.
                     if (ContextCompat.checkSelfPermission(activity,
